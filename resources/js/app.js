@@ -4,7 +4,6 @@ import Layout from "./Shared/Layout.vue"
 import PrimeVue from "primevue/config";
 import InputText from 'primevue/inputtext';
 import InputMask from 'primevue/inputmask';
-import FloatLabel from 'primevue/floatlabel';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
 import 'primevue/resources/themes/lara-light-green/theme.css'
@@ -22,7 +21,6 @@ createInertiaApp({
             .component('InputText', InputText)
             .component('InputMask', InputMask)
             .component('Textarea', Textarea)
-            .component('FloatLabel', FloatLabel)
             .component('Button', Button)
             .mount(el)
     },
