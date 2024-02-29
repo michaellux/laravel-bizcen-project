@@ -16,6 +16,7 @@
     },
     "dependencies": {
         "@inertiajs/vue3": "^1.0.15",
+        "primevue": "^3.49.1",
         "vue": "^3.4.21",
         "vue-loader": "^17.3.1"
     }
