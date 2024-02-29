@@ -6,6 +6,7 @@ use Google\Client as GoogleClient;
 use Google\Service\Sheets as GoogleSheets;
 use Google\Service\Drive as GoogleDrive;
 use Illuminate\Http\Request;
+use App\Models\SpreadsheetLink;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -22,7 +23,8 @@ Route::get('/', function () {
 });
 
 Route::get('/list', function () {
-    return Inertia::render('List');
+    $links = SpreadsheetLink::all();
+    return Inertia::render('List', ['links' => $links]);
 });
 
 Route::post('/send-query', function (Request $request) {
@@ -41,7 +43,7 @@ Route::post('/send-query', function (Request $request) {
         $service = new GoogleSheets($client);
         $spreadsheet = new Google_Service_Sheets_Spreadsheet([
             'properties' => [
-                'title' => 'New Spreadsheet'
+                'title' => 'Заявка'
             ]
         ]);
         $spreadsheet = $service->spreadsheets->create($spreadsheet, [
@@ -50,6 +52,21 @@ Route::post('/send-query', function (Request $request) {
 
         $spreadsheetId = $spreadsheet->spreadsheetId;
 
+        $requests = [
+            new Google_Service_Sheets_Request([
+                'updateSpreadsheetProperties' => [
+                    'properties' => [
+                        'title' => 'Заявка ' . $spreadsheetId
+                    ],
+                    'fields' => 'title'
+                ]
+            ])
+        ];
+        $batchUpdateRequest = new Google_Service_Sheets_BatchUpdateSpreadsheetRequest([
+            'requests' => $requests
+        ]);
+        $service->spreadsheets->batchUpdate($spreadsheetId, $batchUpdateRequest);
+
         $driveService = new GoogleDrive($client);
         $drivePermission = new Google_Service_Drive_Permission([
             'type' => 'anyone',
@@ -57,14 +74,42 @@ Route::post('/send-query', function (Request $request) {
         ]);
         $driveService->permissions->create($spreadsheetId, $drivePermission);
 
+        $range = 'Sheet1!A1:D1'; // Adjust the range as needed for the header row
+        $headerValues = [array_keys($request->all())]; // Get the column names from the request data
+
+        // Append the header (column names) to the Google Sheet
+        $headerBody = new Google_Service_Sheets_ValueRange([
+            'values' => $headerValues
+        ]);
+        $headerParams = [
+            'valueInputOption' => 'RAW'
+        ];
+        $service->spreadsheets_values->append($spreadsheetId, $range, $headerBody, $headerParams);
+
+
+        // Assuming you want to append all request data to the first sheet
+        $range = 'Sheet1!A2'; // Adjust the range as needed
+        $values = $request->all(); // Get request data
+        $values = [array_values($values)]; // Convert the request data to a 2D array
+
+        // Append the data to the Google Sheet
+        $body = new Google_Service_Sheets_ValueRange([
+            'values' => $values
+        ]);
+        $params = [
+            'valueInputOption' => 'RAW'
+        ];
+        $service->spreadsheets_values->append($spreadsheetId, $range, $body, $params);
+
         // Construct the URL to the newly created Google Sheet
         $sheetUrl = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/edit";
 
-        // Redirect to the Google Sheet
-        return redirect($sheetUrl);
+        SpreadsheetLink::create([
+            'spreadsheet_id' => $spreadsheetId,
+            'link' => $sheetUrl,
+        ]);
+        return redirect('/list');
     } catch (\Google_Service_Exception $e) {
         return response()->json(['error' => 'Authentication failed: ' . $e->getMessage()], 401);
     }
-
-    // return Inertia::render('List');
 });
